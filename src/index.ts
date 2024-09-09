@@ -9,6 +9,7 @@ interface ITaskData {
 }
 export enum Status {
     SUCCESS,
+    SESSION_ALREADY_ACTIVE,
     NOT_INITIALIZED,
     CONERSION_IN_PROGRESS
 }
@@ -17,13 +18,22 @@ class WebpageToPdf {
     private isSessionActive: boolean = false;
     private isConversionInProgress = false;
     private cluster!: Cluster<ITaskData>;
-    private pdfCreator: PDFCreator = new PDFCreator();
-    private pagesPdfArray: Uint8Array[] = [];
+    private pdfCreator!: PDFCreator; 
     private numPages: number = 0;
 
     async init(parallelRequests: number = 5) {
+        if (this.isSessionActive) {
+            return Status.SESSION_ALREADY_ACTIVE;
+        }
+        // Create and initialize PDFCreator
+        this.pdfCreator = new PDFCreator();
         await this.pdfCreator.init();
 
+        //Initialize internal states
+        this.numPages = 0;
+        this.isConversionInProgress = false;
+
+        // Initialize puppeteer cluster
         this.cluster = await Cluster.launch({
             concurrency: Cluster.CONCURRENCY_CONTEXT,
             maxConcurrency: parallelRequests,
@@ -33,9 +43,10 @@ class WebpageToPdf {
             await page.setExtraHTTPHeaders(taskData.headers);
             await page.goto(taskData.url);
             const pdfBytes = await page.pdf();
-            this.pagesPdfArray[taskData.index] = pdfBytes;
+            await this.pdfCreator.addPdfBytesAtIndex(pdfBytes, taskData.index);
         });
         this.isSessionActive = true;
+        return Status.SUCCESS;
     }
 
     convertPageToPdf(url: string, headers: Record<string, string> = {}): Status {
@@ -56,12 +67,11 @@ class WebpageToPdf {
 
     async saveAllPagesToPdf(path: string) {
         await this.cluster.idle();
-        for (var pdfPageBytes of this.pagesPdfArray) {
-            await this.pdfCreator.addPdfBytes(pdfPageBytes);
-        }
         const pdfBytes = await this.pdfCreator.getPdf();
         await fs.promises.writeFile(path, pdfBytes);
         await this.cluster.close();
+        // reset the seesion back to inactive
+        this.isSessionActive = false;
     }
 }
 
