@@ -1,7 +1,7 @@
 {
   "name": "webpage-to-pdf",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.0.1",
+  "description": "Utility to export multiple webpages into single PDF",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -12,8 +12,13 @@
     "build": "tsup",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "PDF",
+    "Print to PDF",
+    "Webpage",
+    "Typescript"
+  ],
+  "author": "BS",
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^22.5.4",
