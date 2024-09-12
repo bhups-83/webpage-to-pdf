@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { Cluster } from 'puppeteer-cluster';
 import PDFCreator from './pdf-creator';
+import { PuppeteerLaunchOptions } from 'puppeteer';
 
 interface ITaskData {
     url: string;
@@ -13,6 +14,21 @@ export enum Status {
     NOT_INITIALIZED,
     CONERSION_IN_PROGRESS
 }
+
+interface WebpageToPdfOptions {
+    options: PuppeteerLaunchOptions;
+    parallelRequests: number;
+    shareCookies: boolean;
+}
+
+export type WebpageToPdfArgument = Partial<WebpageToPdfOptions>;
+
+const DEFAULT_OPTIONS: WebpageToPdfOptions = {
+    parallelRequests: 5,
+    shareCookies: false,
+    options: {}
+}
+
 class WebpageToPdf {
 
     private isSessionActive: boolean = false;
@@ -21,7 +37,11 @@ class WebpageToPdf {
     private pdfCreator!: PDFCreator; 
     private numPages: number = 0;
 
-    async init(parallelRequests: number = 5) {
+    async init(wtpArguments: WebpageToPdfArgument=DEFAULT_OPTIONS)  {
+        let args:WebpageToPdfArgument = {
+            ...DEFAULT_OPTIONS,
+            ...wtpArguments
+        }
         if (this.isSessionActive) {
             return Status.SESSION_ALREADY_ACTIVE;
         }
@@ -35,8 +55,9 @@ class WebpageToPdf {
 
         // Initialize puppeteer cluster
         this.cluster = await Cluster.launch({
-            concurrency: Cluster.CONCURRENCY_CONTEXT,
-            maxConcurrency: parallelRequests,
+            concurrency: args.shareCookies? Cluster.CONCURRENCY_PAGE : Cluster.CONCURRENCY_CONTEXT,
+            maxConcurrency: args.parallelRequests,
+            puppeteerOptions: args.options
         });
 
         await this.cluster.task(async({page, data: taskData}) => {
